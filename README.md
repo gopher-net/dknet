@@ -1,35 +1,36 @@
-# Docker volume extension api.
+# Docker network extension api.
 
-Go handler to create external volume extensions for Docker.
+> Note: This is currently under development
+
+Go handler to create external network extensions for Docker.
 
 ## Usage
 
 This library is designed to be integrated in your program.
 
-1. Implement the `dkvolume.Driver` interface.
-2. Initialize a `dkvolume.Hander` with your implementation.
-3. Call either `ServeTCP` or `ServeUnix` from the `dkvolume.Handler`.
+1. Implement the `dknet.Driver` interface.
+2. Initialize a `dknet.Handler` with your implementation.
+3. Call either `ServeTCP` or `ServeUnix` from the `dknet.Handler`.
 
 ### Example using TCP sockets:
 
 ```go
-  d := MyVolumeDriver{}
-  h := dkvolume.NewHandler(d)
-  h.ServeTCP("test_volume", ":8080")
+  d := MyNetworkDriver{}
+  h := dknet.NewHandler(d)
+  h.ServeTCP("test_network", ":8080")
 ```
 
 ### Example using Unix sockets:
 
 ```go
-  d := MyVolumeDriver{}
-  h := dkvolume.NewHandler(d)
-  h.ServeUnix("root", "test_volume")
+  d := MyNetworkDriver{}
+  h := dknet.NewHandler(d)
+  h.ServeUnix("root", "test_network")
 ```
 
 ## Full example plugins
 
-- https://github.com/calavera/docker-volume-glusterfs
-- https://github.com/calavera/docker-volume-keywhiz
+Coming soon
 
 ## License
 

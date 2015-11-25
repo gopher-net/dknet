@@ -9,39 +9,96 @@ import (
 )
 
 const (
-	// DefaultDockerRootDirectory is the default directory where volumes will be created.
-	DefaultDockerRootDirectory = "/var/lib/docker-volumes"
-
 	defaultContentTypeV1_1        = "application/vnd.docker.plugins.v1.1+json"
-	defaultImplementationManifest = `{"Implements": ["VolumeDriver"]}`
+	defaultImplementationManifest = `{"Implements": ["NetworkDriver"]}`
+	defaultScope                  = `{"Scope":"Local"]`
 
-	activatePath    = "/Plugin.Activate"
-	createPath      = "/VolumeDriver.Create"
-	remotePath      = "/VolumeDriver.Remove"
-	hostVirtualPath = "/VolumeDriver.Path"
-	mountPath       = "/VolumeDriver.Mount"
-	unmountPath     = "/VolumeDriver.Unmount"
+	activatePath       = "/Plugin.Activate"
+	capabilitiesPath   = "/NetworkDriver.GetCapabilities"
+	createNetworkPath  = "/NetworkDriver.CreateNetwork"
+	deleteNetworkPath  = "/NetworkDriver.DeleteNetwork"
+	createEndpointPath = "/NetworkDriver.CreateEndpoint"
+	//infoEndpointPath   = "/NetworkDriver.EndpointOperInfo"
+	deleteEndpointPath = "/NetworkDriver.DeleteEndpoint"
+	joinPath           = "/NetworkDriver.Join"
+	leavePath          = "/NetworkDriver.Leave"
+	//discoverNewPath    = "/NetworkDriver.DiscoverNew"
+	//discoverDeletePath = "/NetworkDriver.DiscoverDelete"
 )
-
-// Request is the structure that docker's requests are deserialized to.
-type Request struct {
-	Name    string
-	Options map[string]string `json:"Opts,omitempty"`
-}
-
-// Response is the strucutre that the plugin's responses are serialized to.
-type Response struct {
-	Mountpoint string
-	Err        string
-}
 
 // Driver represent the interface a driver must fulfill.
 type Driver interface {
-	Create(Request) Response
-	Remove(Request) Response
-	Path(Request) Response
-	Mount(Request) Response
-	Unmount(Request) Response
+	CreateNetwork(CreateNetworkRequest) error
+	DeleteNetwork(DeleteNetworkRequest) error
+	CreateEndpoint(CreateEndpointRequest) error
+	DeleteEndpoint(DeleteEndpointRequest) error
+	Join(JoinRequest) (JoinResponse, error)
+	Leave(LeaveRequest) error
+}
+
+type NetworkCreateRequest struct {
+	NetworkID string
+	Options   map[string]interface{}
+	IpV4Data  []driverapi.IPAMData
+	ipV6Data  []driverapi.IPAMData
+}
+
+type NetworkDeleteRequest struct {
+	NetworkID string
+}
+
+type EndpointCreateRequest struct {
+	NetworkID  string
+	EndpointID string
+	Interface  *EndpointInterface
+	Options    map[string]interface{}
+}
+
+type EndpointInterface struct {
+	Address     string
+	AddressIPv6 string
+	MacAddress  string
+}
+
+type InterfaceName struct {
+	SrcName   string
+	DstPrefix string
+}
+
+/* Not supported in this library right now
+type EndpointOperInfoRequest struct {
+	NetworkID string
+	EnpointID string
+}
+
+type EndpointOperInfoResponse struct {
+	Value map[string]string
+}
+*/
+
+type JoinRequest struct {
+	NetworkID  string
+	EndpointID string
+	SandboxKey string
+	Options    map[string]interface{}
+}
+
+type StaticRoute struct {
+	Destination string
+	RouteType   int
+	NextHop     string
+}
+
+type JoinResponse struct {
+	Gateway       string
+	InterfaceName InterfaceName
+	StaticRoutes  []*staticRoute
+}
+
+type LeaveRequest struct {
+	NetworkID  string
+	EndpointID string
+	Options    map[string]interface{}
 }
 
 // Handler forwards requests and responses between the docker daemon and the plugin.
@@ -49,8 +106,6 @@ type Handler struct {
 	driver Driver
 	mux    *http.ServeMux
 }
-
-type actionHandler func(Request) Response
 
 // NewHandler initializes the request handler with a driver implementation.
 func NewHandler(driver Driver) *Handler {
@@ -65,38 +120,84 @@ func (h *Handler) initMux() {
 		fmt.Fprintln(w, defaultImplementationManifest)
 	})
 
-	h.handle(createPath, func(req Request) Response {
-		return h.driver.Create(req)
+	h.mux.HandleFunc(capabilitiesPath, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", defaultContentTypeV1_1)
+		fmt.Fprintln(w, defaultScope)
 	})
 
-	h.handle(remotePath, func(req Request) Response {
-		return h.driver.Remove(req)
-	})
-
-	h.handle(hostVirtualPath, func(req Request) Response {
-		return h.driver.Path(req)
-	})
-
-	h.handle(mountPath, func(req Request) Response {
-		return h.driver.Mount(req)
-	})
-
-	h.handle(unmountPath, func(req Request) Response {
-		return h.driver.Unmount(req)
-	})
-}
-
-func (h *Handler) handle(name string, actionCall actionHandler) {
-	h.mux.HandleFunc(name, func(w http.ResponseWriter, r *http.Request) {
-		req, err := decodeRequest(w, r)
+	h.mux.HandleFunc(createNetworkPath, func(w http.ResponseWriter, r *http.Request) {
+		req = &NetworkCreateRequest{}
+		err := decodeRequest(w, r, req)
 		if err != nil {
 			return
 		}
-
-		res := actionCall(req)
-
-		encodeResponse(w, res)
+		err = h.Driver.CreateNetwork(req)
+		if err != nil {
+			errorResponse(w, err)
+		}
+		successResponse(w)
 	})
+	h.mux.HandleFunc(createDeletePath, func(w http.ResponseWriter, r *http.Request) {
+		req = &NetworkDeleteRequest{}
+		err := decodeRequest(w, r, req)
+		if err != nil {
+			return
+		}
+		err = h.Driver.DeleteNetwork(req)
+		if err != nil {
+			errorResponse(w, err)
+		}
+		successResponse(w)
+	})
+	h.mux.HandleFunc(endpointCreatePath, func(w http.ResponseWriter, r *http.Request) {
+		req = &EndpointCreateRequest{}
+		err := decodeRequest(w, r, req)
+		if err != nil {
+			return
+		}
+		err = h.Driver.CreateEndpoint(req)
+		if err != nil {
+			errorResponse(w, err)
+		}
+		successResponse(w)
+	})
+	h.mux.HandleFunc(endpointDeletePath, func(w http.ResponseWriter, r *http.Request) {
+		req = &EndpointDeleteRequest{}
+		err := decodeRequest(w, r, req)
+		if err != nil {
+			return
+		}
+		err = h.Driver.DeleteEndpoint(req)
+		if err != nil {
+			errorResponse(w, err)
+		}
+		successResponse(w)
+	})
+	h.mux.HandleFunc(joinPath, func(w http.ResponseWriter, r *http.Request) {
+		req = &JoinRequest{}
+		err := decodeRequest(w, r, req)
+		if err != nil {
+			return
+		}
+		res, err := h.Driver.Join(req)
+		if err != nil {
+			errorResponse(w, err)
+		}
+		objectResponse(w, res)
+	})
+	h.mux.HandleFunc(leavePath, func(w http.ResponseWriter, r *http.Request) {
+		req = &LeaveRequest{}
+		err := decodeRequest(w, r, req)
+		if err != nil {
+			return
+		}
+		err = h.Driver.Leave(req)
+		if err != nil {
+			errorResponse(w, err)
+		}
+		successResponse(w)
+	})
+
 }
 
 // ServeTCP makes the handler to listen for request in a given TCP address.
@@ -142,17 +243,27 @@ func (h *Handler) listenAndServe(proto, addr, group string) error {
 	return server.Serve(l)
 }
 
-func decodeRequest(w http.ResponseWriter, r *http.Request) (req Request, err error) {
-	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+func decodeResponse(w http.ResponseWriter, r http.Request, req *interface{}) error {
+	if err = json.NewDecoder(r.Body).Decode(req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 	return
 }
 
-func encodeResponse(w http.ResponseWriter, res Response) {
+func errorResponse(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", defaultContentTypeV1_1)
-	if res.Err != "" {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-	json.NewEncoder(w).Encode(res)
+	json.NewEncoder(w).Encode(map[string]string{
+		"Err": err.Error(),
+	})
+	w.WriteHeader(http.StatusInternalServerError)
+}
+
+func objectResponse(w http.ResponseWriter, obj interface{}) {
+	w.Header().Set("Content-Type", defaultContentTypeV1_1)
+	json.NewEncoder(w).Encode(obj)
+}
+
+func successResponse(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", defaultContentTypeV1_1)
+	w.WriteHeader(http.OK)
 }

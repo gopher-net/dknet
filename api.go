@@ -3,9 +3,12 @@ package dknet
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -267,6 +270,10 @@ func (h *Handler) listenAndServe(proto, addr, group string) error {
 }
 
 func decodeRequest(r *http.Request, req interface{}) error {
+	defer r.Body.Close()
+	body, _ := ioutil.ReadAll(r.Body)
+
+	log.Debugf("Decoding: %s", string(body))
 	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
 		return err
 	}

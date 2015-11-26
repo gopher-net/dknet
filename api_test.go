@@ -105,6 +105,6 @@ func (s *MySuite) TestCreateNetwork200(c *C) {
 	body, err := ioutil.ReadAll(response.Body)
 
 	c.Assert(response.StatusCode, Equals, http.StatusOK)
-	c.Assert(string(body), Equals, "\n")
+	c.Assert(string(body), Equals, "")
 
 }

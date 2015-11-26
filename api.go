@@ -3,15 +3,19 @@ package dknet
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
 	defaultContentTypeV1_1        = "application/vnd.docker.plugins.v1.1+json"
 	defaultImplementationManifest = `{"Implements": ["NetworkDriver"]}`
 	defaultScope                  = `{"Scope": "local"}`
+	emptyResponse                 = `{}`
 
 	activatePath       = "/Plugin.Activate"
 	capabilitiesPath   = "/NetworkDriver.GetCapabilities"
@@ -267,7 +271,10 @@ func (h *Handler) listenAndServe(proto, addr, group string) error {
 }
 
 func decodeRequest(r *http.Request, req interface{}) error {
+	log.Debug("Decoding request")
 	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		body, _ := ioutil.ReadAll(r.Body)
+		log.Debugf("Error decoding request: %s", string(body))
 		return err
 	}
 	return nil
@@ -282,6 +289,7 @@ func badRequestResponse(w http.ResponseWriter) {
 }
 
 func errorResponse(w http.ResponseWriter, err error) {
+	log.Debug("Sending Error Response")
 	w.Header().Set("Content-Type", defaultContentTypeV1_1)
 	w.WriteHeader(http.StatusInternalServerError)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -290,13 +298,15 @@ func errorResponse(w http.ResponseWriter, err error) {
 }
 
 func objectResponse(w http.ResponseWriter, obj interface{}) {
+	log.Debug("Sending Object Response")
 	w.Header().Set("Content-Type", defaultContentTypeV1_1)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
 }
 
 func successResponse(w http.ResponseWriter) {
+	log.Debug("Sending Success Response")
 	w.Header().Set("Content-Type", defaultContentTypeV1_1)
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, emptyResponse)
 }

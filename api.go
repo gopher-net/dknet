@@ -6,8 +6,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-
-	"github.com/docker/libnetwork/driverapi"
 )
 
 const (
@@ -41,8 +39,15 @@ type Driver interface {
 type CreateNetworkRequest struct {
 	NetworkID string
 	Options   map[string]interface{}
-	IpV4Data  []driverapi.IPAMData
-	ipV6Data  []driverapi.IPAMData
+	IPv4Data  []IPAMData
+	IPv6Data  []IPAMData
+}
+
+type IPAMData struct {
+	AddressSpace string
+	Pool         *net.IPNet
+	Gateway      *net.IPNet
+	AuxAddresses map[string]*net.IPNet
 }
 
 type DeleteNetworkRequest struct {
@@ -133,8 +138,9 @@ func (h *Handler) initMux() {
 
 	h.mux.HandleFunc(createNetworkPath, func(w http.ResponseWriter, r *http.Request) {
 		req := &CreateNetworkRequest{}
-		err := decodeRequest(w, r, req)
+		err := decodeRequest(r, req)
 		if err != nil {
+			badRequestResponse(w)
 			return
 		}
 		err = h.driver.CreateNetwork(req)
@@ -146,8 +152,9 @@ func (h *Handler) initMux() {
 	})
 	h.mux.HandleFunc(deleteNetworkPath, func(w http.ResponseWriter, r *http.Request) {
 		req := &DeleteNetworkRequest{}
-		err := decodeRequest(w, r, req)
+		err := decodeRequest(r, req)
 		if err != nil {
+			badRequestResponse(w)
 			return
 		}
 		err = h.driver.DeleteNetwork(req)
@@ -159,8 +166,9 @@ func (h *Handler) initMux() {
 	})
 	h.mux.HandleFunc(createEndpointPath, func(w http.ResponseWriter, r *http.Request) {
 		req := &CreateEndpointRequest{}
-		err := decodeRequest(w, r, req)
+		err := decodeRequest(r, req)
 		if err != nil {
+			badRequestResponse(w)
 			return
 		}
 		err = h.driver.CreateEndpoint(req)
@@ -172,8 +180,9 @@ func (h *Handler) initMux() {
 	})
 	h.mux.HandleFunc(deleteEndpointPath, func(w http.ResponseWriter, r *http.Request) {
 		req := &DeleteEndpointRequest{}
-		err := decodeRequest(w, r, req)
+		err := decodeRequest(r, req)
 		if err != nil {
+			badRequestResponse(w)
 			return
 		}
 		err = h.driver.DeleteEndpoint(req)
@@ -185,8 +194,9 @@ func (h *Handler) initMux() {
 	})
 	h.mux.HandleFunc(joinPath, func(w http.ResponseWriter, r *http.Request) {
 		req := &JoinRequest{}
-		err := decodeRequest(w, r, req)
+		err := decodeRequest(r, req)
 		if err != nil {
+			badRequestResponse(w)
 			return
 		}
 		res, err := h.driver.Join(req)
@@ -198,8 +208,9 @@ func (h *Handler) initMux() {
 	})
 	h.mux.HandleFunc(leavePath, func(w http.ResponseWriter, r *http.Request) {
 		req := &LeaveRequest{}
-		err := decodeRequest(w, r, req)
+		err := decodeRequest(r, req)
 		if err != nil {
+			badRequestResponse(w)
 			return
 		}
 		err = h.driver.Leave(req)
@@ -255,28 +266,37 @@ func (h *Handler) listenAndServe(proto, addr, group string) error {
 	return server.Serve(l)
 }
 
-func decodeRequest(w http.ResponseWriter, r *http.Request, req interface{}) error {
+func decodeRequest(r *http.Request, req interface{}) error {
 	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return err
 	}
 	return nil
 }
 
+func badRequestResponse(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", defaultContentTypeV1_1)
+	w.WriteHeader(http.StatusBadRequest)
+	json.NewEncoder(w).Encode(map[string]string{
+		"Err": "Failed to decode request",
+	})
+}
+
 func errorResponse(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", defaultContentTypeV1_1)
+	w.WriteHeader(http.StatusInternalServerError)
 	json.NewEncoder(w).Encode(map[string]string{
 		"Err": err.Error(),
 	})
-	w.WriteHeader(http.StatusInternalServerError)
 }
 
 func objectResponse(w http.ResponseWriter, obj interface{}) {
 	w.Header().Set("Content-Type", defaultContentTypeV1_1)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(obj)
 }
 
 func successResponse(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", defaultContentTypeV1_1)
 	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "")
 }

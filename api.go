@@ -13,7 +13,7 @@ import (
 const (
 	defaultContentTypeV1_1        = "application/vnd.docker.plugins.v1.1+json"
 	defaultImplementationManifest = `{"Implements": ["NetworkDriver"]}`
-	defaultScope                  = `{"Scope":"Local"]`
+	defaultScope                  = `{"Scope": "local"}`
 
 	activatePath       = "/Plugin.Activate"
 	capabilitiesPath   = "/NetworkDriver.GetCapabilities"
@@ -128,7 +128,6 @@ func (h *Handler) initMux() {
 	})
 
 	h.mux.HandleFunc(capabilitiesPath, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", defaultContentTypeV1_1)
 		fmt.Fprintln(w, defaultScope)
 	})
 

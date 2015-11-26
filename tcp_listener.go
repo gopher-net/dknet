@@ -1,4 +1,4 @@
-package dkvolume
+package dknet
 
 import (
 	"io/ioutil"

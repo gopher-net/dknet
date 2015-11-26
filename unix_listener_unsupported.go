@@ -1,6 +1,6 @@
 // +build !linux,!freebsd
 
-package dkvolume
+package dknet
 
 import (
 	"errors"

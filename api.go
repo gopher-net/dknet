@@ -3,12 +3,9 @@ package dknet
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -42,15 +39,15 @@ type Driver interface {
 type CreateNetworkRequest struct {
 	NetworkID string
 	Options   map[string]interface{}
-	IPv4Data  []IPAMData
-	IPv6Data  []IPAMData
+	IPv4Data  []*IPAMData
+	IPv6Data  []*IPAMData
 }
 
 type IPAMData struct {
 	AddressSpace string
-	Pool         *net.IPNet
-	Gateway      *net.IPNet
-	AuxAddresses map[string]*net.IPNet
+	Pool         string
+	Gateway      string
+	AuxAddresses map[string]interface{}
 }
 
 type DeleteNetworkRequest struct {
@@ -270,10 +267,6 @@ func (h *Handler) listenAndServe(proto, addr, group string) error {
 }
 
 func decodeRequest(r *http.Request, req interface{}) error {
-	defer r.Body.Close()
-	body, _ := ioutil.ReadAll(r.Body)
-
-	log.Debugf("Decoding: %s", string(body))
 	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
 		return err
 	}

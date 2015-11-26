@@ -1,10 +1,9 @@
 package dknet
 
 import (
-	"bytes"
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -93,21 +92,11 @@ func (s *MySuite) TestCreateNetwork400(c *C) {
 }
 
 func (s *MySuite) TestCreateNetwork200(c *C) {
-	request := CreateNetworkRequest{
-		NetworkID: "test",
-		IPv4Data: []IPAMData{
-			IPAMData{AddressSpace: "172.18.0.0/16"},
-		},
-	}
-
-	data, err := json.Marshal(request)
-	if err != nil {
-		c.Fatal(err)
-	}
+	request := `{"NetworkID":"d76cfa51738e8a12c5eca71ee69e9d65010a4b48eaad74adab439be7e61b9aaf","Options":{"com.docker.network.generic":{}},"IPv4Data":[{"AddressSpace":"","Gateway":"172.18.0.1/16","Pool":"172.18.0.0/16"}],"IPv6Data":[]}`
 
 	response, err := http.Post("http://localhost:8080/NetworkDriver.CreateNetwork",
 		defaultContentTypeV1_1,
-		bytes.NewBuffer(data),
+		strings.NewReader(request),
 	)
 	if err != nil {
 		c.Fatal(err)

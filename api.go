@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+
+	"github.com/docker/libnetwork/driverapi"
 )
 
 const (
@@ -28,26 +30,26 @@ const (
 
 // Driver represent the interface a driver must fulfill.
 type Driver interface {
-	CreateNetwork(CreateNetworkRequest) error
-	DeleteNetwork(DeleteNetworkRequest) error
-	CreateEndpoint(CreateEndpointRequest) error
-	DeleteEndpoint(DeleteEndpointRequest) error
-	Join(JoinRequest) (JoinResponse, error)
-	Leave(LeaveRequest) error
+	CreateNetwork(*CreateNetworkRequest) error
+	DeleteNetwork(*DeleteNetworkRequest) error
+	CreateEndpoint(*CreateEndpointRequest) error
+	DeleteEndpoint(*DeleteEndpointRequest) error
+	Join(*JoinRequest) (*JoinResponse, error)
+	Leave(*LeaveRequest) error
 }
 
-type NetworkCreateRequest struct {
+type CreateNetworkRequest struct {
 	NetworkID string
 	Options   map[string]interface{}
 	IpV4Data  []driverapi.IPAMData
 	ipV6Data  []driverapi.IPAMData
 }
 
-type NetworkDeleteRequest struct {
+type DeleteNetworkRequest struct {
 	NetworkID string
 }
 
-type EndpointCreateRequest struct {
+type CreateEndpointRequest struct {
 	NetworkID  string
 	EndpointID string
 	Interface  *EndpointInterface
@@ -58,6 +60,11 @@ type EndpointInterface struct {
 	Address     string
 	AddressIPv6 string
 	MacAddress  string
+}
+
+type DeleteEndpointRequest struct {
+	NetworkID  string
+	EndpointID string
 }
 
 type InterfaceName struct {
@@ -92,7 +99,7 @@ type StaticRoute struct {
 type JoinResponse struct {
 	Gateway       string
 	InterfaceName InterfaceName
-	StaticRoutes  []*staticRoute
+	StaticRoutes  []*StaticRoute
 }
 
 type LeaveRequest struct {
@@ -126,72 +133,72 @@ func (h *Handler) initMux() {
 	})
 
 	h.mux.HandleFunc(createNetworkPath, func(w http.ResponseWriter, r *http.Request) {
-		req = &NetworkCreateRequest{}
+		req := &CreateNetworkRequest{}
 		err := decodeRequest(w, r, req)
 		if err != nil {
 			return
 		}
-		err = h.Driver.CreateNetwork(req)
+		err = h.driver.CreateNetwork(req)
 		if err != nil {
 			errorResponse(w, err)
 		}
 		successResponse(w)
 	})
-	h.mux.HandleFunc(createDeletePath, func(w http.ResponseWriter, r *http.Request) {
-		req = &NetworkDeleteRequest{}
+	h.mux.HandleFunc(deleteNetworkPath, func(w http.ResponseWriter, r *http.Request) {
+		req := &DeleteNetworkRequest{}
 		err := decodeRequest(w, r, req)
 		if err != nil {
 			return
 		}
-		err = h.Driver.DeleteNetwork(req)
+		err = h.driver.DeleteNetwork(req)
 		if err != nil {
 			errorResponse(w, err)
 		}
 		successResponse(w)
 	})
-	h.mux.HandleFunc(endpointCreatePath, func(w http.ResponseWriter, r *http.Request) {
-		req = &EndpointCreateRequest{}
+	h.mux.HandleFunc(createEndpointPath, func(w http.ResponseWriter, r *http.Request) {
+		req := &CreateEndpointRequest{}
 		err := decodeRequest(w, r, req)
 		if err != nil {
 			return
 		}
-		err = h.Driver.CreateEndpoint(req)
+		err = h.driver.CreateEndpoint(req)
 		if err != nil {
 			errorResponse(w, err)
 		}
 		successResponse(w)
 	})
-	h.mux.HandleFunc(endpointDeletePath, func(w http.ResponseWriter, r *http.Request) {
-		req = &EndpointDeleteRequest{}
+	h.mux.HandleFunc(deleteEndpointPath, func(w http.ResponseWriter, r *http.Request) {
+		req := &DeleteEndpointRequest{}
 		err := decodeRequest(w, r, req)
 		if err != nil {
 			return
 		}
-		err = h.Driver.DeleteEndpoint(req)
+		err = h.driver.DeleteEndpoint(req)
 		if err != nil {
 			errorResponse(w, err)
 		}
 		successResponse(w)
 	})
 	h.mux.HandleFunc(joinPath, func(w http.ResponseWriter, r *http.Request) {
-		req = &JoinRequest{}
+		req := &JoinRequest{}
 		err := decodeRequest(w, r, req)
 		if err != nil {
 			return
 		}
-		res, err := h.Driver.Join(req)
+		res, err := h.driver.Join(req)
 		if err != nil {
 			errorResponse(w, err)
 		}
 		objectResponse(w, res)
 	})
 	h.mux.HandleFunc(leavePath, func(w http.ResponseWriter, r *http.Request) {
-		req = &LeaveRequest{}
+		req := &LeaveRequest{}
 		err := decodeRequest(w, r, req)
 		if err != nil {
 			return
 		}
-		err = h.Driver.Leave(req)
+		err = h.driver.Leave(req)
 		if err != nil {
 			errorResponse(w, err)
 		}
@@ -243,11 +250,12 @@ func (h *Handler) listenAndServe(proto, addr, group string) error {
 	return server.Serve(l)
 }
 
-func decodeResponse(w http.ResponseWriter, r http.Request, req *interface{}) error {
-	if err = json.NewDecoder(r.Body).Decode(req); err != nil {
+func decodeRequest(w http.ResponseWriter, r *http.Request, req interface{}) error {
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return err
 	}
-	return
+	return nil
 }
 
 func errorResponse(w http.ResponseWriter, err error) {
@@ -265,5 +273,5 @@ func objectResponse(w http.ResponseWriter, obj interface{}) {
 
 func successResponse(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", defaultContentTypeV1_1)
-	w.WriteHeader(http.OK)
+	w.WriteHeader(http.StatusOK)
 }

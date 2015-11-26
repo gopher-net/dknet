@@ -141,6 +141,7 @@ func (h *Handler) initMux() {
 		err = h.driver.CreateNetwork(req)
 		if err != nil {
 			errorResponse(w, err)
+			return
 		}
 		successResponse(w)
 	})
@@ -153,6 +154,7 @@ func (h *Handler) initMux() {
 		err = h.driver.DeleteNetwork(req)
 		if err != nil {
 			errorResponse(w, err)
+			return
 		}
 		successResponse(w)
 	})
@@ -165,6 +167,7 @@ func (h *Handler) initMux() {
 		err = h.driver.CreateEndpoint(req)
 		if err != nil {
 			errorResponse(w, err)
+			return
 		}
 		successResponse(w)
 	})
@@ -177,6 +180,7 @@ func (h *Handler) initMux() {
 		err = h.driver.DeleteEndpoint(req)
 		if err != nil {
 			errorResponse(w, err)
+			return
 		}
 		successResponse(w)
 	})
@@ -189,6 +193,7 @@ func (h *Handler) initMux() {
 		res, err := h.driver.Join(req)
 		if err != nil {
 			errorResponse(w, err)
+			return
 		}
 		objectResponse(w, res)
 	})
@@ -201,6 +206,7 @@ func (h *Handler) initMux() {
 		err = h.driver.Leave(req)
 		if err != nil {
 			errorResponse(w, err)
+			return
 		}
 		successResponse(w)
 	})

@@ -1,8 +1,7 @@
 # Docker network extension api.
 
-> Note: This is currently under development
-
 Go handler to create external network extensions for Docker.
+Inspired by @calavera's awesome [`dkvolume` library](https://github.com/calavera/dkvolume)
 
 ## Usage
 

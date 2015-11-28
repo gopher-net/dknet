@@ -22,7 +22,7 @@ const (
 	createNetworkPath  = "/NetworkDriver.CreateNetwork"
 	deleteNetworkPath  = "/NetworkDriver.DeleteNetwork"
 	createEndpointPath = "/NetworkDriver.CreateEndpoint"
-	//infoEndpointPath   = "/NetworkDriver.EndpointOperInfo"
+	endpointInfoPath   = "/NetworkDriver.EndpointOperInfo"
 	deleteEndpointPath = "/NetworkDriver.DeleteEndpoint"
 	joinPath           = "/NetworkDriver.Join"
 	leavePath          = "/NetworkDriver.Leave"
@@ -36,6 +36,7 @@ type Driver interface {
 	DeleteNetwork(*DeleteNetworkRequest) error
 	CreateEndpoint(*CreateEndpointRequest) error
 	DeleteEndpoint(*DeleteEndpointRequest) error
+	EndpointInfo(*InfoRequest) (*InfoResponse, error)
 	Join(*JoinRequest) (*JoinResponse, error)
 	Leave(*LeaveRequest) error
 }
@@ -81,16 +82,14 @@ type InterfaceName struct {
 	DstPrefix string
 }
 
-/* Not supported in this library right now
-type EndpointOperInfoRequest struct {
+type InfoRequest struct {
 	NetworkID string
 	EnpointID string
 }
 
-type EndpointOperInfoResponse struct {
+type InfoResponse struct {
 	Value map[string]string
 }
-*/
 
 type JoinRequest struct {
 	NetworkID  string
@@ -195,6 +194,20 @@ func (h *Handler) initMux() {
 			return
 		}
 		successResponse(w)
+	})
+	h.mux.HandleFunc(endpointInfoPath, func(w http.ResponseWriter, r *http.Request) {
+		req := &InfoRequest{}
+		err := decodeRequest(r, req)
+		if err != nil {
+			badRequestResponse(w)
+			return
+		}
+		res, err := h.driver.EndpointInfo(req)
+		if err != nil {
+			errorResponse(w, err)
+			return
+		}
+		objectResponse(w, res)
 	})
 	h.mux.HandleFunc(joinPath, func(w http.ResponseWriter, r *http.Request) {
 		req := &JoinRequest{}

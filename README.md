@@ -29,7 +29,7 @@ This library is designed to be integrated in your program.
 
 ## Full example plugins
 
-Coming soon
+- [docker-ovs-plugin](https://github.com/gopher-net/docker-ovs-plugin) - An Open vSwitch Networking Plugin
 
 ## License
 

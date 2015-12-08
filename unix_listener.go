@@ -23,7 +23,7 @@ func newUnixListener(
 	if err != nil {
 		return nil, "", err
 	}
-	listener, err := sockets.NewUnixSocket(path, group, start)
+	listener, err := sockets.NewUnixSocket(path, group)
 	if err != nil {
 		return nil, "", err
 	}

@@ -1,4 +1,7 @@
-# Docker network extension api.
+# Docker network extension api
+
+> This repository is no longer maintained
+> Please use https://github.com/docker/go-plugins-helpers
 
 Go handler to create external network extensions for Docker.
 Inspired by @calavera's awesome [`dkvolume` library](https://github.com/calavera/dkvolume)
